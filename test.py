@@ -35,13 +35,11 @@ def check_devices() -> list[str]:
 
 
 def list_sdcard_root(serial: str):
-    """Lists files in /sdcard to confirm shell commands work."""
     output = run_adb_command(["-s", serial, "shell", "ls", "/sdcard"])
     print(f"Contents of /sdcard on {serial}:\n{output}\n")
 
 
 def launch_scrcpy(serial: str):
-    """Launches scrcpy as a separate detached window."""
     print(f"Launching scrcpy for {serial} ...")
     subprocess.Popen(
         [SCRCPY_PATH, "-s", serial],
