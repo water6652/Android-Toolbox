@@ -1,5 +1,6 @@
 import subprocess
 import threading
+import time
 import customtkinter as ctk
 
 ADB_PATH = "adb"
@@ -93,18 +94,19 @@ class App(ctk.CTk):
         self.tabs["Home"] = self.home_frame
 
         self.status_label = ctk.CTkLabel(
-            self.home_frame, text="No device connected",
+            self.home_frame, text="Searching for device...",
             font=ctk.CTkFont(size=16)
         )
         self.status_label.pack(pady=(40, 10))
 
-        self.connect_button = ctk.CTkButton(
-            self.home_frame, text="Connect Device",
-            command=self.on_connect_clicked
-        )
-        self.connect_button.pack(pady=10)
+        self.spinner = ctk.CTkProgressBar(self.home_frame, mode="indeterminate", width=200)
+        self.spinner.pack(pady=10)
+        self.spinner.start()
 
         self.select_tab("Home")
+
+        self.polling = True
+        threading.Thread(target=self._poll_for_device, daemon=True).start()
 
     def select_tab(self, name):
         for btn_name, btn in self.nav_buttons.items():
@@ -116,20 +118,19 @@ class App(ctk.CTk):
         if name in self.tabs:
             self.tabs[name].tkraise()
 
-    def on_connect_clicked(self):
-        self.status_label.configure(text="Checking for devices...")
-        threading.Thread(target=self._check_devices_thread, daemon=True).start()
+    def _poll_for_device(self):
+        while self.polling:
+            devices = check_devices()
+            if devices:
+                self.after(0, self._on_device_found, devices[0])
+                return
+            time.sleep(1.5)
 
-    def _check_devices_thread(self):
-        devices = check_devices()
-        self.after(0, self._update_after_check, devices)
-
-    def _update_after_check(self, devices):
-        if devices:
-            self.connected_serial = devices[0]
-            self.status_label.configure(text=f"Connected: {self.connected_serial}")
-        else:
-            self.status_label.configure(text="No authorized device found")
+    def _on_device_found(self, serial):
+        self.connected_serial = serial
+        self.spinner.stop()
+        self.spinner.pack_forget()
+        self.status_label.configure(text=f"Connected: {serial}")
 
     def change_appearance(self, mode):
         ctk.set_appearance_mode(mode)
