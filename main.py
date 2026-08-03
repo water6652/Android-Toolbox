@@ -9,7 +9,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
-def check_devices() -> list[str]:
+def check_devices() -> dict:
     result = subprocess.run(
         [ADB_PATH, "devices"],
         capture_output=True,
@@ -17,16 +17,19 @@ def check_devices() -> list[str]:
         creationflags=subprocess.CREATE_NO_WINDOW
     )
     if result.returncode != 0:
-        return []
+        return {"authorized": [], "unauthorized": []}
     lines = result.stdout.strip().splitlines()[1:]
-    devices = []
+    authorized = []
+    unauthorized = []
     for line in lines:
         if not line.strip():
             continue
         serial, status = line.split("\t")
         if status == "device":
-            devices.append(serial)
-    return devices
+            authorized.append(serial)
+        elif status == "unauthorized":
+            unauthorized.append(serial)
+    return {"authorized": authorized, "unauthorized": unauthorized}
 
 
 class App(ctk.CTk):
@@ -120,11 +123,23 @@ class App(ctk.CTk):
 
     def _poll_for_device(self):
         while self.polling:
-            devices = check_devices()
-            if devices:
-                self.after(0, self._on_device_found, devices[0])
+            result = check_devices()
+            if result["authorized"]:
+                self.after(0, self._on_device_found, result["authorized"][0])
                 return
+            elif result["unauthorized"]:
+                self.after(0, self._on_device_unauthorized)
+            else:
+                self.after(0, self._on_searching)
             time.sleep(1.5)
+
+    def _on_searching(self):
+        self.status_label.configure(text="Searching for device...")
+
+    def _on_device_unauthorized(self):
+        self.status_label.configure(
+            text="Device detected but not authorized\nCheck your phone and tap \"Allow USB debugging\""
+        )
 
     def _on_device_found(self, serial):
         self.connected_serial = serial
