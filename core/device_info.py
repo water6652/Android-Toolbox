@@ -1,0 +1,1 @@
+#empty for now until i get the file from google with all device names
