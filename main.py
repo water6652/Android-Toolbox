@@ -39,18 +39,26 @@ class App(ctk.CTk):
 
         self.sidebar = ctk.CTkFrame(self, width=240, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(len(NAV_ITEMS) + 1, weight=1)
+        self.sidebar.pack_propagate(False)
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar, text="Android Toolbox",
             font=ctk.CTkFont(size=18, weight="bold")
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 15))
+        self.logo_label.pack(padx=20, pady=(20, 15))
+
+        self.appearance_menu = ctk.CTkOptionMenu(
+            self.sidebar,
+            values=["Light", "Dark", "System"],
+            command=self.change_appearance
+        )
+        self.appearance_menu.set("Dark")
+        self.appearance_menu.pack(side="bottom", padx=15, pady=20)
 
         self.nav_buttons = {}
         self.device_sub_frame = None
 
-        for i, name in enumerate(NAV_ITEMS):
+        for name in NAV_ITEMS:
             btn = ctk.CTkButton(
                 self.sidebar,
                 text=name,
@@ -58,14 +66,15 @@ class App(ctk.CTk):
                 fg_color="transparent",
                 text_color=("gray10", "gray90"),
                 hover_color=("gray70", "gray30"),
+                border_width=1,
+                border_color=("gray70", "gray40"),
                 command=lambda n=name: self.select_tab(n)
             )
-            btn.grid(row=i + 1, column=0, padx=15, pady=(5, 0), sticky="ew")
+            btn.pack(padx=15, pady=(5, 0), fill="x")
             self.nav_buttons[name] = btn
 
             if name == "Home":
-                self.device_sub_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-                self.device_sub_frame.grid(row=i + 1, column=0, padx=(35, 15), pady=(38, 5), sticky="ew")
+                self.device_sub_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent", width=170)
 
                 self.device_name_label = ctk.CTkLabel(
                     self.device_sub_frame, text="", font=ctk.CTkFont(size=11),
@@ -93,16 +102,6 @@ class App(ctk.CTk):
                     text_color="gray50"
                 )
                 self.device_usb_icon.pack(side="right", padx=(0, 5))
-
-                self.device_sub_frame.grid_remove()
-
-        self.appearance_menu = ctk.CTkOptionMenu(
-            self.sidebar,
-            values=["Light", "Dark", "System"],
-            command=self.change_appearance
-        )
-        self.appearance_menu.set("Dark")
-        self.appearance_menu.grid(row=len(NAV_ITEMS) + 2, column=0, padx=15, pady=20, sticky="s")
 
         self.content = ctk.CTkFrame(self, corner_radius=0)
         self.content.grid(row=0, column=1, sticky="nsew")
@@ -155,13 +154,13 @@ class App(ctk.CTk):
             return
         self.device_status = "searching"
         self.connected_serial = None
-        self.device_sub_frame.grid_remove()
+        self.device_sub_frame.pack_forget()
         self._refresh_active_tab()
 
     def _on_device_unauthorized(self):
         self.device_status = "unauthorized"
         self.connected_serial = None
-        self.device_sub_frame.grid()
+        self.device_sub_frame.pack(after=self.nav_buttons["Home"], pady=(6, 5))
         self.device_name_label.configure(text="Unknown device")
         self.device_status_dot.configure(text_color="#e0a800")
         self.device_status_label.configure(text="Not authorized")
@@ -173,7 +172,7 @@ class App(ctk.CTk):
         raw_model = get_device_model(serial)
         self.device_name = resolve_marketing_name(raw_model)
 
-        self.device_sub_frame.grid()
+        self.device_sub_frame.pack(after=self.nav_buttons["Home"], pady=(6, 5))
         self.device_name_label.configure(text=self.device_name)
         self.device_status_dot.configure(text_color="#2ecc71")
         self.device_status_label.configure(text="Connected")
