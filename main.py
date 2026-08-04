@@ -1,34 +1,24 @@
-import subprocess
 import threading
 import time
 import customtkinter as ctk
-
-ADB_PATH = "adb"
+from core.adb import check_devices, get_device_model
+from core.device_info import resolve_marketing_name
+from core.paths import check_engine_files
+from screens.home import HomeFrame
+from screens.screen_mirror import ScreenMirrorFrame
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-def check_devices() -> dict:
-    result = subprocess.run(
-        [ADB_PATH, "devices"],
-        capture_output=True,
-        text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW
-    )
-    if result.returncode != 0:
-        return {"authorized": [], "unauthorized": []}
-    lines = result.stdout.strip().splitlines()[1:]
-    authorized = []
-    unauthorized = []
-    for line in lines:
-        if not line.strip():
-            continue
-        serial, status = line.split("\t")
-        if status == "device":
-            authorized.append(serial)
-        elif status == "unauthorized":
-            unauthorized.append(serial)
-    return {"authorized": authorized, "unauthorized": unauthorized}
+NAV_ITEMS = [
+    "Home",
+    "File Browser",
+    "Gallery",
+    "App Manager",
+    "Screen Mirror",
+    "Backup",
+    "Settings",
+]
 
 
 class App(ctk.CTk):
@@ -38,12 +28,18 @@ class App(ctk.CTk):
         self.title("Android Toolbox")
         self.geometry("1100x650")
 
+        self.connected_serial = None
+        self.device_name = None
+        self.device_status = "searching"
+        self.polling = True
+        self.tabs = {}
+
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
+        self.sidebar = ctk.CTkFrame(self, width=240, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(9, weight=1)
+        self.sidebar.grid_rowconfigure(len(NAV_ITEMS) + 1, weight=1)
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar, text="Android Toolbox",
@@ -52,17 +48,9 @@ class App(ctk.CTk):
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 15))
 
         self.nav_buttons = {}
-        nav_items = [
-            "Home",
-            "File Browser",
-            "Gallery",
-            "App Manager",
-            "Screen Mirror",
-            "Backup",
-            "Settings",
-        ]
+        self.device_sub_frame = None
 
-        for i, name in enumerate(nav_items):
+        for i, name in enumerate(NAV_ITEMS):
             btn = ctk.CTkButton(
                 self.sidebar,
                 text=name,
@@ -72,8 +60,41 @@ class App(ctk.CTk):
                 hover_color=("gray70", "gray30"),
                 command=lambda n=name: self.select_tab(n)
             )
-            btn.grid(row=i + 1, column=0, padx=15, pady=5, sticky="ew")
+            btn.grid(row=i + 1, column=0, padx=15, pady=(5, 0), sticky="ew")
             self.nav_buttons[name] = btn
+
+            if name == "Home":
+                self.device_sub_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+                self.device_sub_frame.grid(row=i + 1, column=0, padx=(35, 15), pady=(38, 5), sticky="ew")
+
+                self.device_name_label = ctk.CTkLabel(
+                    self.device_sub_frame, text="", font=ctk.CTkFont(size=11),
+                    text_color="gray60", anchor="w", justify="left"
+                )
+                self.device_name_label.pack(anchor="w")
+
+                self.device_status_row = ctk.CTkFrame(self.device_sub_frame, fg_color="transparent")
+                self.device_status_row.pack(anchor="w", fill="x")
+
+                self.device_status_dot = ctk.CTkLabel(
+                    self.device_status_row, text="●", font=ctk.CTkFont(size=11),
+                    text_color="gray40", width=15
+                )
+                self.device_status_dot.pack(side="left")
+
+                self.device_status_label = ctk.CTkLabel(
+                    self.device_status_row, text="", font=ctk.CTkFont(size=11),
+                    text_color="gray60", anchor="w"
+                )
+                self.device_status_label.pack(side="left")
+
+                self.device_usb_icon = ctk.CTkLabel(
+                    self.device_status_row, text="USB", font=ctk.CTkFont(size=10),
+                    text_color="gray50"
+                )
+                self.device_usb_icon.pack(side="right", padx=(0, 5))
+
+                self.device_sub_frame.grid_remove()
 
         self.appearance_menu = ctk.CTkOptionMenu(
             self.sidebar,
@@ -81,34 +102,28 @@ class App(ctk.CTk):
             command=self.change_appearance
         )
         self.appearance_menu.set("Dark")
-        self.appearance_menu.grid(row=10, column=0, padx=15, pady=20, sticky="s")
+        self.appearance_menu.grid(row=len(NAV_ITEMS) + 2, column=0, padx=15, pady=20, sticky="s")
 
         self.content = ctk.CTkFrame(self, corner_radius=0)
         self.content.grid(row=0, column=1, sticky="nsew")
         self.content.grid_rowconfigure(0, weight=1)
         self.content.grid_columnconfigure(0, weight=1)
 
-        self.connected_serial = None
-        self.tabs = {}
-
-        self.home_frame = ctk.CTkFrame(self.content, fg_color="transparent")
+        self.home_frame = HomeFrame(self.content, self)
         self.home_frame.grid(row=0, column=0, sticky="nsew")
         self.tabs["Home"] = self.home_frame
 
-        self.status_label = ctk.CTkLabel(
-            self.home_frame, text="Searching for device...",
-            font=ctk.CTkFont(size=16)
-        )
-        self.status_label.pack(pady=(40, 10))
-
-        self.spinner = ctk.CTkProgressBar(self.home_frame, mode="indeterminate", width=200)
-        self.spinner.pack(pady=10)
-        self.spinner.start()
+        self.screen_mirror_frame = ScreenMirrorFrame(self.content, self)
+        self.screen_mirror_frame.grid(row=0, column=0, sticky="nsew")
+        self.tabs["Screen Mirror"] = self.screen_mirror_frame
 
         self.select_tab("Home")
 
-        self.polling = True
-        threading.Thread(target=self._poll_for_device, daemon=True).start()
+        missing = check_engine_files()
+        if missing:
+            self.home_frame.show_engine_warning(missing)
+        else:
+            threading.Thread(target=self._poll_for_device, daemon=True).start()
 
     def select_tab(self, name):
         for btn_name, btn in self.nav_buttons.items():
@@ -119,13 +134,16 @@ class App(ctk.CTk):
 
         if name in self.tabs:
             self.tabs[name].tkraise()
+            if hasattr(self.tabs[name], "refresh"):
+                self.tabs[name].refresh()
 
     def _poll_for_device(self):
         while self.polling:
             result = check_devices()
             if result["authorized"]:
-                self.after(0, self._on_device_found, result["authorized"][0])
-                return
+                serial = result["authorized"][0]
+                if serial != self.connected_serial or self.device_status != "connected":
+                    self.after(0, self._on_device_found, serial)
             elif result["unauthorized"]:
                 self.after(0, self._on_device_unauthorized)
             else:
@@ -133,18 +151,39 @@ class App(ctk.CTk):
             time.sleep(1.5)
 
     def _on_searching(self):
-        self.status_label.configure(text="Searching for device...")
+        if self.device_status == "searching":
+            return
+        self.device_status = "searching"
+        self.connected_serial = None
+        self.device_sub_frame.grid_remove()
+        self._refresh_active_tab()
 
     def _on_device_unauthorized(self):
-        self.status_label.configure(
-            text="Device detected but not authorized\nCheck your phone and tap \"Allow USB debugging\""
-        )
+        self.device_status = "unauthorized"
+        self.connected_serial = None
+        self.device_sub_frame.grid()
+        self.device_name_label.configure(text="Unknown device")
+        self.device_status_dot.configure(text_color="#e0a800")
+        self.device_status_label.configure(text="Not authorized")
+        self._refresh_active_tab()
 
     def _on_device_found(self, serial):
         self.connected_serial = serial
-        self.spinner.stop()
-        self.spinner.pack_forget()
-        self.status_label.configure(text=f"Connected: {serial}")
+        self.device_status = "connected"
+        raw_model = get_device_model(serial)
+        self.device_name = resolve_marketing_name(raw_model)
+
+        self.device_sub_frame.grid()
+        self.device_name_label.configure(text=self.device_name)
+        self.device_status_dot.configure(text_color="#2ecc71")
+        self.device_status_label.configure(text="Connected")
+        self._refresh_active_tab()
+
+    def _refresh_active_tab(self):
+        for name, frame in self.tabs.items():
+            if self.nav_buttons[name].cget("fg_color") != "transparent":
+                if hasattr(frame, "refresh"):
+                    frame.refresh()
 
     def change_appearance(self, mode):
         ctk.set_appearance_mode(mode)
@@ -153,4 +192,3 @@ class App(ctk.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-
