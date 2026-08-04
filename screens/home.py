@@ -30,4 +30,3 @@ class HomeFrame(ctk.CTkFrame):
         self.warning_label.configure(
             text=f"Missing required files:\n{files_text}\n\nPlace adb.exe and scrcpy.exe (with their DLLs) inside the 'engine' folder next to main.py."
         )
-

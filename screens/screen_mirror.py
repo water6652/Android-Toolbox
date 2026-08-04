@@ -247,4 +247,3 @@ EXPLANATIONS = {
     "Balanced": "A middle ground between smoothness and quality. Good default for most devices and computers.",
     "Quality": "Full resolution and higher bit rate. Best visual quality, but requires a stronger PC and USB connection.",
 }
-

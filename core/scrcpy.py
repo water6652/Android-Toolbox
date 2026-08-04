@@ -35,4 +35,3 @@ def is_running(process: subprocess.Popen | None) -> bool:
 def stop(process: subprocess.Popen | None):
     if process is not None and is_running(process):
         process.terminate()
-
