@@ -1,1 +1,2 @@
-#empty for now until i get the file from google with all device names
+def resolve_marketing_name(raw_model: str) -> str:
+    return raw_model
