@@ -8,7 +8,6 @@ ADB_PATH = "adb"
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-
 def check_devices() -> dict:
     result = subprocess.run(
         [ADB_PATH, "devices"],
@@ -154,3 +153,4 @@ class App(ctk.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
+
