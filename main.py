@@ -6,6 +6,7 @@ from core.device_info import resolve_marketing_name
 from core.paths import check_engine_files
 from screens.home import HomeFrame
 from screens.screen_mirror import ScreenMirrorFrame
+from screens.file_browser import FileBrowserFrame
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -115,6 +116,10 @@ class App(ctk.CTk):
         self.screen_mirror_frame = ScreenMirrorFrame(self.content, self)
         self.screen_mirror_frame.grid(row=0, column=0, sticky="nsew")
         self.tabs["Screen Mirror"] = self.screen_mirror_frame
+
+        self.file_browser_frame = FileBrowserFrame(self.content, self)
+        self.file_browser_frame.grid(row=0, column=0, sticky="nsew")
+        self.tabs["File Browser"] = self.file_browser_frame
 
         self.select_tab("Home")
 
