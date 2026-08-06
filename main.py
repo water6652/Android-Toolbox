@@ -7,6 +7,7 @@ from core.paths import check_engine_files
 from screens.home import HomeFrame
 from screens.screen_mirror import ScreenMirrorFrame
 from screens.file_browser import FileBrowserFrame
+from screens.backup import BackupFrame
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -120,6 +121,10 @@ class App(ctk.CTk):
         self.file_browser_frame = FileBrowserFrame(self.content, self)
         self.file_browser_frame.grid(row=0, column=0, sticky="nsew")
         self.tabs["File Browser"] = self.file_browser_frame
+
+        self.backup_frame = BackupFrame(self.content, self)
+        self.backup_frame.grid(row=0, column=0, sticky="nsew")
+        self.tabs["Backup"] = self.backup_frame
 
         self.select_tab("Home")
 
