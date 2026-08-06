@@ -2,7 +2,7 @@ import threading
 import customtkinter as ctk
 from core.adb import list_directory
 
-ROOT_PATH = "/sdcard"
+ROOT_PATH = "/sdcard/"
 
 SHORTCUTS = [
     ("Internal Storage", "/sdcard/"),
