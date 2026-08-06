@@ -5,7 +5,7 @@ from core.adb import list_directory
 ROOT_PATH = "/sdcard"
 
 SHORTCUTS = [
-    ("Internal Storage", "/sdcard"),
+    ("Internal Storage", "/sdcard/"),
     ("DCIM", "/sdcard/DCIM"),
     ("Downloads", "/sdcard/Download"),
     ("Pictures", "/sdcard/Pictures"),
@@ -53,7 +53,11 @@ class FileBrowserFrame(ctk.CTkFrame):
         self.history = [ROOT_PATH]
         self.history_index = 0
         self.current_entries = []
+        self.filtered_entries = []
         self.loaded_serial = None
+        self.request_id = 0
+        self.rendered_count = 0
+        self.batch_size = 100
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -66,23 +70,38 @@ class FileBrowserFrame(ctk.CTkFrame):
         self.top_bar = ctk.CTkFrame(self, fg_color="transparent")
         self.top_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=15, pady=(15, 5))
 
-        self.back_button = ctk.CTkButton(self.top_bar, text="←", width=35, command=self._go_back)
+        self.back_button = ctk.CTkButton(
+            self.top_bar, text="←", width=35, command=self._go_back,
+            border_width=1, border_color=("gray70", "gray40")
+        )
         self.back_button.pack(side="left", padx=(0, 5))
 
-        self.forward_button = ctk.CTkButton(self.top_bar, text="→", width=35, command=self._go_forward)
+        self.forward_button = ctk.CTkButton(
+            self.top_bar, text="→", width=35, command=self._go_forward,
+            border_width=1, border_color=("gray70", "gray40")
+        )
         self.forward_button.pack(side="left", padx=(0, 5))
 
-        self.up_button = ctk.CTkButton(self.top_bar, text="↑", width=35, command=self._go_up)
+        self.up_button = ctk.CTkButton(
+            self.top_bar, text="↑", width=35, command=self._go_up,
+            border_width=1, border_color=("gray70", "gray40")
+        )
         self.up_button.pack(side="left", padx=(0, 15))
 
         self.breadcrumb_frame = ctk.CTkFrame(self.top_bar, fg_color="transparent")
         self.breadcrumb_frame.pack(side="left", fill="x", expand=True)
 
-        self.search_entry = ctk.CTkEntry(self.top_bar, placeholder_text="Search this folder", width=200)
+        self.search_entry = ctk.CTkEntry(
+            self.top_bar, placeholder_text="Search this folder", width=200,
+            border_width=1, border_color=("gray70", "gray40")
+        )
         self.search_entry.pack(side="right", padx=(5, 0))
         self.search_entry.bind("<KeyRelease>", lambda e: self._render_entries())
 
-        self.refresh_button = ctk.CTkButton(self.top_bar, text="⟳", width=35, command=self._load_current_path)
+        self.refresh_button = ctk.CTkButton(
+            self.top_bar, text="⟳", width=35, command=self._load_current_path,
+            border_width=1, border_color=("gray70", "gray40")
+        )
         self.refresh_button.pack(side="right", padx=(5, 5))
 
     def _build_shortcuts_panel(self):
@@ -95,6 +114,7 @@ class FileBrowserFrame(ctk.CTkFrame):
                 self.shortcuts_panel, text=label, anchor="w",
                 fg_color="transparent", text_color=("gray10", "gray90"),
                 hover_color=("gray70", "gray30"),
+                border_width=1, border_color=("gray70", "gray40"),
                 command=lambda p=path: self._navigate_to(p)
             )
             btn.pack(fill="x", padx=10, pady=(10, 0))
@@ -109,6 +129,7 @@ class FileBrowserFrame(ctk.CTkFrame):
         self.status_label.grid(row=0, column=0)
 
         self.scroll_area = ctk.CTkScrollableFrame(self.main_panel, fg_color="transparent")
+        self.scroll_area._parent_canvas.bind("<MouseWheel>", self._on_scroll, add="+")
 
     def refresh(self):
         if not self.app.connected_serial:
@@ -160,14 +181,23 @@ class FileBrowserFrame(ctk.CTkFrame):
         serial = self.app.connected_serial
         if not serial:
             return
-        threading.Thread(target=self._fetch_entries, args=(serial, self.current_path), daemon=True).start()
+        self.request_id += 1
+        request_id = self.request_id
+        threading.Thread(
+            target=self._fetch_entries,
+            args=(serial, self.current_path, request_id),
+            daemon=True
+        ).start()
 
-    def _fetch_entries(self, serial, path):
-        entries = list_directory(serial, path)
-        self.after(0, self._on_entries_loaded, path, entries)
+    def _fetch_entries(self, serial, path, request_id):
+        try:
+            entries = list_directory(serial, path)
+        except Exception:
+            entries = None
+        self.after(0, self._on_entries_loaded, request_id, path, entries)
 
-    def _on_entries_loaded(self, path, entries):
-        if path != self.current_path:
+    def _on_entries_loaded(self, request_id, path, entries):
+        if request_id != self.request_id:
             return
         if entries is None:
             self._show_status("Could not read this folder")
@@ -179,7 +209,8 @@ class FileBrowserFrame(ctk.CTkFrame):
 
     def _render_entries(self):
         query = self.search_entry.get().strip().lower()
-        filtered = [e for e in self.current_entries if query in e["name"].lower()]
+        self.filtered_entries = [e for e in self.current_entries if query in e["name"].lower()]
+        self.rendered_count = 0
 
         self.status_label.grid_remove()
         self.scroll_area.grid(row=0, column=0, sticky="nsew")
@@ -187,14 +218,32 @@ class FileBrowserFrame(ctk.CTkFrame):
         for widget in self.scroll_area.winfo_children():
             widget.destroy()
 
-        if not filtered:
+        if not self.filtered_entries:
             empty_text = "No matching files" if query else "This folder is empty"
             empty_label = ctk.CTkLabel(self.scroll_area, text=empty_text, text_color="gray60")
             empty_label.pack(pady=30)
             return
 
-        for entry in filtered:
+        self._render_next_batch()
+
+    def _render_next_batch(self):
+        remaining = self.filtered_entries[self.rendered_count:self.rendered_count + self.batch_size]
+        for entry in remaining:
             self._create_row(entry)
+        self.rendered_count += len(remaining)
+
+    def _on_scroll(self, _event=None):
+        self.after(30, self._check_scroll_position)
+
+    def _check_scroll_position(self):
+        if self.rendered_count >= len(self.filtered_entries):
+            return
+        try:
+            _top, bottom = self.scroll_area._parent_canvas.yview()
+        except Exception:
+            return
+        if bottom > 0.9:
+            self._render_next_batch()
 
     def _create_row(self, entry):
         row = ctk.CTkFrame(self.scroll_area, fg_color="transparent")

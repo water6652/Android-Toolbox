@@ -3,18 +3,22 @@ import shlex
 from core.paths import ADB_PATH
 
 
-def _run(args: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [ADB_PATH] + args,
-        capture_output=True,
-        text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW
-    )
+def _run(args: list[str]) -> subprocess.CompletedProcess | None:
+    try:
+        return subprocess.run(
+            [ADB_PATH] + args,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+    except Exception:
+        return None
 
 
 def check_devices() -> dict:
     result = _run(["devices"])
-    if result.returncode != 0:
+    if result is None or result.returncode != 0:
         return {"authorized": [], "unauthorized": []}
 
     lines = result.stdout.strip().splitlines()[1:]
@@ -33,14 +37,14 @@ def check_devices() -> dict:
 
 def get_device_model(serial: str) -> str:
     result = _run(["-s", serial, "shell", "getprop", "ro.product.model"])
-    if result.returncode != 0:
+    if result is None or result.returncode != 0:
         return "Unknown Device"
     return result.stdout.strip()
 
 
 def get_screen_resolution(serial: str) -> tuple[int, int] | None:
     result = _run(["-s", serial, "shell", "wm", "size"])
-    if result.returncode != 0:
+    if result is None or result.returncode != 0:
         return None
 
     output = result.stdout.strip()
@@ -62,7 +66,7 @@ def get_screen_resolution(serial: str) -> tuple[int, int] | None:
 def list_directory(serial: str, path: str) -> list[dict] | None:
     quoted_path = shlex.quote(path)
     result = _run(["-s", serial, "shell", f"ls -la {quoted_path}"])
-    if result.returncode != 0:
+    if result is None or result.returncode != 0 or result.stdout is None:
         return None
 
     entries = []
