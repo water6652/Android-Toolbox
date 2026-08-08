@@ -8,6 +8,7 @@ from screens.home import HomeFrame
 from screens.screen_mirror import ScreenMirrorFrame
 from screens.file_browser import FileBrowserFrame
 from screens.backup import BackupFrame
+from screens.app_manager import AppManagerFrame
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -125,6 +126,10 @@ class App(ctk.CTk):
         self.backup_frame = BackupFrame(self.content, self)
         self.backup_frame.grid(row=0, column=0, sticky="nsew")
         self.tabs["Backup"] = self.backup_frame
+
+        self.app_manager_frame = AppManagerFrame(self.content, self)
+        self.app_manager_frame.grid(row=0, column=0, sticky="nsew")
+        self.tabs["App Manager"] = self.app_manager_frame
 
         self.select_tab("Home")
 
