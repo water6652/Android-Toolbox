@@ -59,7 +59,6 @@ class GalleryFrame(ctk.CTkFrame):
         self.status_label.grid(row=0, column=0)
 
         self.scroll_area = ctk.CTkScrollableFrame(self.main_panel, fg_color="transparent")
-        self.scroll_area._parent_canvas.bind("<MouseWheel>", self._on_scroll, add="+")
         self.scroll_area.bind("<Configure>", self._on_container_resize)
 
     def _on_source_changed(self, label):
@@ -122,6 +121,7 @@ class GalleryFrame(ctk.CTkFrame):
 
         self.columns = self._compute_columns()
         self._render_next_batch()
+        self._check_scroll_position()
 
     def _render_next_batch(self):
         serial = self.app.connected_serial
@@ -135,18 +135,16 @@ class GalleryFrame(ctk.CTkFrame):
 
         self.rendered_count += len(remaining)
 
-    def _on_scroll(self, _event=None):
-        self.after(30, self._check_scroll_position)
-
     def _check_scroll_position(self):
         if self.rendered_count >= len(self.filtered_media):
             return
         try:
             _top, bottom = self.scroll_area._parent_canvas.yview()
         except Exception:
-            return
+            bottom = 0
         if bottom > 0.9:
             self._render_next_batch()
+        self.after(250, self._check_scroll_position)
 
     def _on_container_resize(self, _event=None):
         if not self.filtered_media:

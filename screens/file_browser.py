@@ -129,7 +129,6 @@ class FileBrowserFrame(ctk.CTkFrame):
         self.status_label.grid(row=0, column=0)
 
         self.scroll_area = ctk.CTkScrollableFrame(self.main_panel, fg_color="transparent")
-        self.scroll_area._parent_canvas.bind("<MouseWheel>", self._on_scroll, add="+")
 
     def refresh(self):
         if not self.app.connected_serial:
@@ -225,15 +224,14 @@ class FileBrowserFrame(ctk.CTkFrame):
             return
 
         self._render_next_batch()
+        self._render_next_batch()
+        self._check_scroll_position()
 
-    def _render_next_batch(self):
+   def _render_next_batch(self):
         remaining = self.filtered_entries[self.rendered_count:self.rendered_count + self.batch_size]
         for entry in remaining:
             self._create_row(entry)
         self.rendered_count += len(remaining)
-
-    def _on_scroll(self, _event=None):
-        self.after(30, self._check_scroll_position)
 
     def _check_scroll_position(self):
         if self.rendered_count >= len(self.filtered_entries):
@@ -241,9 +239,10 @@ class FileBrowserFrame(ctk.CTkFrame):
         try:
             _top, bottom = self.scroll_area._parent_canvas.yview()
         except Exception:
-            return
+            bottom = 0
         if bottom > 0.9:
             self._render_next_batch()
+        self.after(250, self._check_scroll_position)
 
     def _create_row(self, entry):
         row = ctk.CTkFrame(self.scroll_area, fg_color="transparent")
