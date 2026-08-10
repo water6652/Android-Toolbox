@@ -138,7 +138,6 @@ class AppManagerFrame(ctk.CTkFrame):
         self.status_label.grid(row=0, column=0)
 
         self.scroll_area = ctk.CTkScrollableFrame(self.main_panel, fg_color="transparent")
-        self.scroll_area._parent_canvas.bind("<MouseWheel>", self._on_scroll, add="+")
 
     def _on_filter_changed(self, label):
         for key, val in FILTER_LABELS.items():
@@ -198,6 +197,7 @@ class AppManagerFrame(ctk.CTkFrame):
             return
 
         self._render_next_batch()
+        self._check_scroll_position()
 
     def _render_next_batch(self):
         remaining = self.filtered_packages[self.rendered_count:self.rendered_count + self.batch_size]
@@ -207,18 +207,16 @@ class AppManagerFrame(ctk.CTkFrame):
             self._create_row(package, serial, generation)
         self.rendered_count += len(remaining)
 
-    def _on_scroll(self, _event=None):
-        self.after(30, self._check_scroll_position)
-
     def _check_scroll_position(self):
         if self.rendered_count >= len(self.filtered_packages):
             return
         try:
             _top, bottom = self.scroll_area._parent_canvas.yview()
         except Exception:
-            return
+            bottom = 0
         if bottom > 0.9:
             self._render_next_batch()
+        self.after(250, self._check_scroll_position)
 
     def _create_row(self, package, serial, generation):
         row = ctk.CTkFrame(self.scroll_area, fg_color="transparent")
