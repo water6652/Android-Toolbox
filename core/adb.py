@@ -64,10 +64,10 @@ def get_screen_resolution(serial: str) -> tuple[int, int] | None:
 
 
 def list_directory(serial: str, path: str) -> list[dict] | None:
-    quoted_path = shlex.quote(path)
-    result = _run(["-s", serial, "shell", f"ls -la {quoted_path}"])
+    result = _run(["-s", serial, "shell", "ls", "-la", path])
     if result is None or result.returncode != 0 or result.stdout is None:
-        return None
+        return None 
+
 
     entries = []
     for line in result.stdout.splitlines():
