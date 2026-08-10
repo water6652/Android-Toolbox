@@ -227,7 +227,7 @@ class FileBrowserFrame(ctk.CTkFrame):
         self._render_next_batch()
         self._check_scroll_position()
 
-   def _render_next_batch(self):
+    def _render_next_batch(self):
         remaining = self.filtered_entries[self.rendered_count:self.rendered_count + self.batch_size]
         for entry in remaining:
             self._create_row(entry)
