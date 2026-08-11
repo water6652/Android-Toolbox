@@ -21,14 +21,14 @@ class SettingsFrame(ctk.CTkFrame):
         self.grid_rowconfigure(0, weight=1)
 
         self._build_category_panel()
-        self._build_context_area()
+        self._build_content_area()
 
         self._show_category(CATEGORY_ORDER[0])
 
     def _build_category_panel(self):
         self.category_panel = ctk.CTkFrame(self, width=180)
         self.category_panel.grid(row=0, column=0, sticky="ns", padx=(20, 10), pady=20)
-        self.categoty_panel.pack_propagate(False)
+        self.category_panel.pack_propagate(False)
 
         for name in CATEGORY_ORDER:
             btn = ctk.CTkButton(
@@ -53,7 +53,7 @@ class SettingsFrame(ctk.CTkFrame):
     def _show_category(self, name):
         for category_name, btn in self.category_buttons.items():
             if category_name == name:
-                btn.configure(_fg_color=("gray75", "gray25"))
+                btn.configure(fg_color=("gray75", "gray25"))
             else:
                 btn.configure(fg_color="transparent")
 

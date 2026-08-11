@@ -10,6 +10,7 @@ from screens.file_browser import FileBrowserFrame
 from screens.backup import BackupFrame
 from screens.app_manager import AppManagerFrame
 from screens.gallery import GalleryFrame
+from screens.settings import SettingsFrame
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -135,6 +136,10 @@ class App(ctk.CTk):
         self.gallery_frame = GalleryFrame(self.content, self)
         self.gallery_frame.grid(row=0, column=0, sticky="nsew")
         self.tabs["Gallery"] = self.gallery_frame
+
+        self.settings_frame = SettingsFrame(self.content, self)
+        self.settings_frame.grid(row=0, column=0, sticky="nsew")
+        self.tabs["Settings"] = self.settings_frame
 
         self.select_tab("Home")
 
