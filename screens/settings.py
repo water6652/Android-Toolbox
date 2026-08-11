@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from screens.about import AboutSettingsFrame
 
 CATEGORY_ORDER = [
     "General",
@@ -22,6 +23,11 @@ class SettingsFrame(ctk.CTkFrame):
 
         self._build_category_panel()
         self._build_content_area()
+
+        self.tabs["About"] = AboutSettingsFrame(self.content, self.app)
+
+        for tab in self.tabs.values():
+            tab.grid(row=0, column=0, sticky="nsew")
 
         self._show_category(CATEGORY_ORDER[0])
 
